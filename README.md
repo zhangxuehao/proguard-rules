@@ -77,3 +77,48 @@ android {
    public <init>(org.json.JSONObject);
 }
 ```
+有时候你是不是还想着，我不需要保持类名，我只需要把该类下的特定方法保持不被混淆就好，那你就不能用keep方法了，keep方法会保持类名，而需要用keepclassmembers ，如此类名就不会被保持，为了便于对这些规则进行理解，官网给出了以下表格
+
+| 保留        | 防止被移除或者被重命名           | 防止被重命名  |
+| ------------- |:-------------:| -----:|
+| 类和类成员|	-keep	|-keepnames |
+| 仅类成员	|-keepclassmembers	|-keepclassmembernames|
+| 如果拥有某成员，保留类和类成员	|-keepclasseswithmembers|	-keepclasseswithmembern |
+
+移除是指在压缩(Shrinking)时是否会被删除。以上内容时混淆规则中需要重点掌握的，了解后，基本所有的混淆规则文件你应该都能看懂了。再配合以下几点注意事项，
+
+>注意事项
+
+1，jni方法不可混淆，因为这个方法需要和native方法保持一致；
+```
+-keepclasseswithmembernames class * { # 保持native方法不被混淆
+    native <methods>;
+}
+```
+2，反射用到的类不混淆(否则反射可能出现问题)；
+
+3，AndroidMainfest中的类不混淆，所以四大组件和Application的子类和Framework层下所有的类默认不会进行混淆。自定义的View默认也不会被混淆；所以像网上贴的很多排除自定义View，或四大组件被混淆的规则在Android Studio中是无需加入的；
+
+4，与服务端交互时，使用GSON、fastjson等框架解析服务端数据时，所写的JSON对象类不混淆，否则无法将JSON解析成对应的对象；
+
+5，使用第三方开源库或者引用其他第三方的SDK包时，如果有特别要求，也需要在混淆文件中加入对应的混淆规则；
+
+6，有用到WebView的JS调用也需要保证写的接口方法不混淆，原因和第一条一样；
+
+7，Parcelable的子类和Creator静态成员变量不混淆，否则会产生Android.os.BadParcelableException异常；
+```
+-keep class * implements Android.os.Parcelable { # 保持Parcelable不被混淆
+    public static final Android.os.Parcelable$Creator *;
+}
+```
+8，使用enum类型时需要注意避免以下两个方法混淆，因为enum类的特殊性，以下两个方法会被反射调用，见第二条规则。
+```
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+```
+
+>写在最后
+
+发布一款应用除了设minifyEnabled为ture，你也应该设置zipAlignEnabled为true，像Google Play强制要求开发者上传的应用必须是经过zipAlign的，zipAlign可以让安装包中的资源按4字节对齐，这样可以减少应用在运行时的内存消耗。
